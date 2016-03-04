@@ -2,24 +2,35 @@ import time
 import socket
 import base64
 import argparse
+import ipaddress
 
-encoding = 'utf-8'
-src      = b'10.0.1.3'          # ip of remote
+encoding =  'utf-8'
 mac      = b'00-AB-11-11-11-11' # mac of remote
 remote   = b'python remote'     # remote name
-dst      = '10.0.1.13'           # ip of tv
-app      = 'python'             # iphone..iapp.samsung
-tv       = 'LE32C650'           # iphone.LE32C650.iapp.samsung
-port     = 55000
+dst      =  '10.0.1.13'         # ip of tv
+app      =  'python'            # iphone..iapp.samsung
+tv       =  'LE32C650'          # iphone.LE32C650.iapp.samsung
+port     =  55000
 
 def scan_network():
-    print("Scanning network...")
+  global dst
+  print("Scanning network...")
+  my_mask = socket.gethostbyname(socket.getfqdn()) + '/24'
+  interface = ipaddress.IPv4Interface(my_mask).network
+  socket.setdefaulttimeout(0.1)
+  # start looking in the first valid ip
+  for addr in interface:
+    dst = str(addr)
+    if (push('PING')):
+      print("TV found in ip: " + str(addr))
+      break
 
 def push(key):
   try:
     new = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     new.connect((dst, port))
 
+    src      = bytes(new.getsockname()[0], encoding)
     byte_key = bytes(key, encoding)
 
     encoded_key    = base64.b64encode(byte_key).decode(encoding)
