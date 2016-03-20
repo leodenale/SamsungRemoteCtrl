@@ -1,34 +1,36 @@
+#!/usr/bin/env python3.5
+
 import time
 import socket
 import base64
 import argparse
 import ipaddress
+import sys
 
 encoding =  'utf-8'
 mac      = b'00-AB-11-11-11-11' # mac of remote
 remote   = b'python remote'     # remote name
-dst      =  '10.0.1.13'         # ip of tv
+dst      =  '10.0.1.10'         # ip of tv
 app      =  'python'            # iphone..iapp.samsung
 tv       =  'LE32C650'          # iphone.LE32C650.iapp.samsung
 port     =  55000
 
-def scan_network():
-  global dst
+def scan_network(silent, key):
   print("Scanning network...")
   my_mask = socket.gethostbyname(socket.getfqdn()) + '/24'
   interface = ipaddress.IPv4Interface(my_mask).network
   socket.setdefaulttimeout(0.1)
   # start looking in the first valid ip
   for addr in interface:
-    dst = str(addr)
-    if (push('PING')):
-      print("TV found in ip: " + str(addr))
-      break
+    ip = str(addr)
+    if (push(ip, key)):
+      if (not silent):
+        print("TV found in ip: " + ip)
 
-def push(key):
+def push(ip, key):
   try:
     new = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    new.connect((dst, port))
+    new.connect((ip, port))
 
     src      = bytes(new.getsockname()[0], encoding)
     byte_key = bytes(key, encoding)
@@ -63,14 +65,22 @@ def push(key):
     return False
 
 def main():
-  parser = argparse.ArgumentParser()
-  parser.add_argument("-s", "--scan", help="scans the TV on yhe network", action="store_true")
-  parser.add_argument("-k", "--key", help="the key to be sent to TV", default="KEY_VOLDOWN")
+  parser = argparse.ArgumentParser(description='Controls your Samsumg SmartTV thru Wifi')
+  parser.add_argument("-s", "--scan", help="scans the TV on the network", action="store_true")
+  parser.add_argument("-k", "--key", help="the key to be sent to TV")
+  parser.add_argument("-p", "--poweroff", help="search all TV's in the network and turn them off", action="store_true")
+
+  if len(sys.argv)==1:
+    parser.print_help()
+    sys.exit(1)
+
   args = parser.parse_args()
 
   if args.scan:
-     scan_network()
-  else:
-     push(args.key)
+     scan_network(False, 'PING')
+  if args.key:
+     push(dst, args.key)
+  if args.poweroff:
+     scan_network(False, 'KEY_POWEROFF')
 
 if __name__ == "__main__": main()
