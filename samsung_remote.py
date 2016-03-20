@@ -16,23 +16,32 @@ tv       =  'LE32C650'          # iphone.LE32C650.iapp.samsung
 port     =  55000
 
 def scan_network(silent, key):
-  print("Scanning network...")
-  my_mask = socket.gethostbyname(socket.getfqdn()) + '/24'
-  interface = ipaddress.IPv4Interface(my_mask).network
-  socket.setdefaulttimeout(0.1)
-  # start looking in the first valid ip
-  for addr in interface:
-    ip = str(addr)
-    if (push(ip, key)):
-      if (not silent):
-        print("TV found in ip: " + ip)
+  try:
+    if (not silent):
+      print("Scanning network...")
+
+    my_mask = socket.gethostbyname(socket.getfqdn()) + '/24'
+    interface = ipaddress.IPv4Interface(my_mask).network
+    socket.setdefaulttimeout(0.1)
+
+    # start looking in the first valid ip
+    for addr in interface:
+      ip = str(addr)
+      if (push(ip, key)):
+        if (silent):
+          break
+        else:
+          print("TV found in ip: " + ip)
+
+  except KeyboardInterrupt:
+    print (' was pressed. Search interrupted by user')
 
 def push(ip, key):
   try:
-    new = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    new.connect((ip, port))
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect((ip, port))
 
-    src      = bytes(new.getsockname()[0], encoding)
+    src      = bytes(client_socket.getsockname()[0], encoding)
     byte_key = bytes(key, encoding)
 
     encoded_key    = base64.b64encode(byte_key).decode(encoding)
@@ -49,7 +58,7 @@ def push(ip, key):
            chr(len(app)) + chr(0x00) + app +\
            chr(len(msg)) + chr(0x00) + msg
 
-    new.send(bytes(pkt, encoding))
+    client_socket.send(bytes(pkt, encoding))
 
     msg =  chr(0x00) + chr(0x00) + chr(0x00) +\
            chr(len(encoded_key)) + chr(0x00) + encoded_key
@@ -57,8 +66,8 @@ def push(ip, key):
     pkt =  chr(0x00) + chr(len(tv)) + chr(0x00) + tv + chr(len(msg)) +\
            chr(0x00) + msg
 
-    new.send(bytes(pkt, encoding))
-    new.close()
+    client_socket.send(bytes(pkt, encoding))
+    client_socket.close()
     time.sleep(0.1)
     return True
   except socket.error:
@@ -69,6 +78,8 @@ def main():
   parser.add_argument("-s", "--scan", help="scans the TV on the network", action="store_true")
   parser.add_argument("-k", "--key", help="the key to be sent to TV")
   parser.add_argument("-p", "--poweroff", help="search all TV's in the network and turn them off", action="store_true")
+  parser.add_argument("-i", "--ip", help="defines the ip of the TV that will receive the command")
+  parser.add_argument("-a", "--auto", help="sends the command to the first TV available", action="store_true")
 
   if len(sys.argv)==1:
     parser.print_help()
@@ -78,8 +89,14 @@ def main():
 
   if args.scan:
      scan_network(False, 'PING')
+  if args.ip:
+     global dst
+     dst = args.ip
   if args.key:
-     push(dst, args.key)
+     if args.auto:
+       scan_network(True, args.key)
+     else:
+       push(dst, args.key)
   if args.poweroff:
      scan_network(False, 'KEY_POWEROFF')
 
