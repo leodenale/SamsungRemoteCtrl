@@ -6,6 +6,7 @@ import base64
 import argparse
 import ipaddress
 import sys
+import csv
 
 encoding =  'utf-8'
 mac      = b'00-AB-11-11-11-11' # mac of remote
@@ -36,7 +37,7 @@ def scan_network(silent, key):
   except KeyboardInterrupt:
     print (' was pressed. Search interrupted by user')
 
-def push(ip, key):
+def push(ip, key, wait_time = 100.0):
   try:
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect((ip, port))
@@ -68,10 +69,16 @@ def push(ip, key):
 
     client_socket.send(bytes(pkt, encoding))
     client_socket.close()
-    time.sleep(0.1)
+    time.sleep(wait_time / 1000.0)
     return True
   except socket.error:
     return False
+
+def execute_macro(filename):
+   with open(filename, newline='') as macro_file:
+      reader = csv.DictReader(macro_file, ("key", "time"))
+      for line in reader:
+         push(dst, line['key'], float(line['time']))
 
 def main():
   parser = argparse.ArgumentParser(description='Controls your Samsumg SmartTV thru Wifi')
@@ -80,6 +87,7 @@ def main():
   parser.add_argument("-p", "--poweroff", help="search all TV's in the network and turn them off", action="store_true")
   parser.add_argument("-i", "--ip", help="defines the ip of the TV that will receive the command")
   parser.add_argument("-a", "--auto", help="sends the command to the first TV available", action="store_true")
+  parser.add_argument("-m", "--macro", help="the macro file with commands to be sent to TV")
 
   if len(sys.argv)==1:
     parser.print_help()
@@ -99,5 +107,7 @@ def main():
        push(dst, args.key)
   if args.poweroff:
      scan_network(False, 'KEY_POWEROFF')
+  if args.macro:
+     execute_macro(args.macro)
 
 if __name__ == "__main__": main()
