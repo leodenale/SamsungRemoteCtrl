@@ -75,10 +75,13 @@ def push(ip, key, wait_time = 100.0):
     return False
 
 def execute_macro(filename):
-   with open(filename, newline='') as macro_file:
-      reader = csv.DictReader(macro_file, ("key", "time"))
-      for line in reader:
-         push(dst, line['key'], float(line['time']))
+  try:
+    with open(filename, newline='') as macro_file:
+       reader = csv.DictReader(macro_file, ("key", "time"))
+       for line in reader:
+          push(dst, line['key'], float(line['time']))
+  except (FileNotFoundError, IOError):
+    print('No such macro file: ' + filename) 
 
 def main():
   parser = argparse.ArgumentParser(description='Controls your Samsumg SmartTV thru Wifi')
