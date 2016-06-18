@@ -79,7 +79,9 @@ def execute_macro(filename):
     with open(filename, newline='') as macro_file:
        reader = csv.DictReader(macro_file, ("key", "time"))
        for line in reader:
-          push(dst, line['key'], float(line['time']))
+          if (line['key'].startswith('#')):
+             continue
+          push(dst, line['key'], float(line['time'] or 1000.0))
   except (FileNotFoundError, IOError):
     print('No such macro file: ' + filename) 
 
