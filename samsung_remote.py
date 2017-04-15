@@ -8,15 +8,15 @@ import ipaddress
 import sys
 import csv
 
-encoding =  'utf-8'
-mac      = b'00-AB-11-11-11-11' # mac of remote
-remote   = b'python remote'     # remote name
-dst      =  '10.0.1.10'         # ip of tv
-app      =  'python'            # iphone..iapp.samsung
-tv       =  'LE32C650'          # iphone.LE32C650.iapp.samsung
+encoding = 'utf-8'
+mac      = '00-AB-11-11-11-11' # mac of remote
+remote   = 'python remote'     # remote name
+dst      = '10.0.1.10'         # ip of tv
+app      = 'python'            # iphone..iapp.samsung
+tv       = 'LE32C650'          # iphone.LE32C650.iapp.samsung
 port     =  55000
-key_ping =  'PING'
-key_off  =  'KEY_POWEROFF'
+key_ping = 'PING'
+key_off  = 'KEY_POWEROFF'
 
 # got this code from https://stackoverflow.com/questions/166506/finding-local-ip-addresses-using-pythons-stdlib/28950776#28950776
 # just need to change port 0 to 1 for some reason to work on Mac OS X
@@ -61,18 +61,14 @@ def push(ip, key, wait_time = 100.0):
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect((ip, port))
 
-    src      = bytes(client_socket.getsockname()[0], encoding)
+    src      = client_socket.getsockname()[0]
     byte_key = bytes(key, encoding)
-
     encoded_key    = base64.b64encode(byte_key).decode(encoding)
-    encoded_src    = base64.b64encode(src).decode(encoding)
-    encoded_mac    = base64.b64encode(mac).decode(encoding)
-    encoded_remote = base64.b64encode(remote).decode(encoding)
     
-    msg =  chr(0x64) + chr(0x00)    +\
-           chr(len(encoded_src))    + chr(0x00) + encoded_src +\
-           chr(len(encoded_mac))    + chr(0x00) + encoded_mac +\
-           chr(len(encoded_remote)) + chr(0x00) + encoded_remote 
+    msg =  chr(0x64)        + chr(0x00) +\
+           chr(len(src))    + chr(0x00) + src +\
+           chr(len(mac))    + chr(0x00) + mac +\
+           chr(len(remote)) + chr(0x00) + remote 
 
     pkt =  chr(0x00) +\
            chr(len(app)) + chr(0x00) + app +\
