@@ -15,9 +15,12 @@ dst      =  '10.0.1.10'         # ip of tv
 app      =  'python'            # iphone..iapp.samsung
 tv       =  'LE32C650'          # iphone.LE32C650.iapp.samsung
 port     =  55000
+key_ping =  'PING'
+key_off  =  'KEY_POWEROFF'
 
 # got this code from https://stackoverflow.com/questions/166506/finding-local-ip-addresses-using-pythons-stdlib/28950776#28950776
 # just need to change port 0 to 1 for some reason to work on Mac OS X
+
 def get_my_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -44,6 +47,8 @@ def scan_network(silent, key):
       ip = str(addr)
       if (push(ip, key)):
         if (silent):
+          global dst
+          dst = ip
           break
         else:
           print("TV found in ip: " + ip)
@@ -115,17 +120,21 @@ def main():
   args = parser.parse_args()
 
   if args.scan:
-     scan_network(False, 'PING')
+     scan_network(False, key_ping)
+
+  if args.auto:
+     scan_network(True, key_ping)
+
   if args.ip:
      global dst
      dst = args.ip
+
   if args.key:
-     if args.auto:
-       scan_network(True, args.key)
-     else:
-       push(dst, args.key)
+     push(dst, args.key)
+
   if args.poweroff:
-     scan_network(False, 'KEY_POWEROFF')
+     scan_network(False, key_off)
+
   if args.macro:
      execute_macro(args.macro)
 
