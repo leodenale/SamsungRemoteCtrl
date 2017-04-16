@@ -15,11 +15,17 @@ Project forked from (https://gist.github.com/danielfaust/998441)
 ./samsung_remote.py [-h] [-s] [-k KEY] [-p] [-i IP] [-a] [-m MACRO]
 
   -h, --help              show this help message and exit
+  
   -s, --scan              scans the TV on the network
+  
   -k KEY, --key KEY       the key to be sent to TV
+  
   -p, --poweroff          search all TV's in the network and turn them off
+  
   -i IP, --ip IP          defines the ip of the TV that will receive the command
+  
   -a, --auto              sends the command to the first TV available
+  
   -m MACRO, --macro MACRO the macro file with commands to be sent to TV
 
 ## Dependecies
