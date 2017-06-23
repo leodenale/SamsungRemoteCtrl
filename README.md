@@ -7,7 +7,7 @@ samsung_remote is a script writen in python 3.5 that can remotely control your S
 - scan the network for TV's;
 - turn off all the TV's;
 - specify which TV's to send commands;
-- save common routines in a macro file to be executed latter.
+- save common routines in a macro file to be executed latter. (video of a macro being executed: https://youtu.be/UXxBB7BOMDM)
 
 Project forked from (https://gist.github.com/danielfaust/998441)
 
