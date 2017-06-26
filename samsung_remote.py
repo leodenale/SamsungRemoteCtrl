@@ -4,66 +4,41 @@ import time
 import socket
 import base64
 import argparse
-import ipaddress
 import sys
 import csv
+import ssdp
+import re
 
 encoding = 'utf-8'
 mac      = '00-AB-11-11-11-11' # mac of remote
 remote   = 'python remote'     # remote name
-dst      = '10.0.1.10'         # ip of tv
 app      = 'python'            # iphone..iapp.samsung
 tv       = 'LE32C650'          # iphone.LE32C650.iapp.samsung
-port     =  55000
-key_ping = 'PING'
-key_off  = 'KEY_POWEROFF'
 
-# got this code from https://stackoverflow.com/questions/166506/finding-local-ip-addresses-using-pythons-stdlib/28950776#28950776
-# just need to change port 0 to 1 for some reason to work on Mac OS X
-
-def get_my_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        # doesn't even have to be reachable
-        s.connect(('10.255.255.255', 1))
-        ip = s.getsockname()[0]
-    except:
-        ip = '127.0.0.1'
-    finally:
-        s.close()
-    return ip 
-
-def scan_network(silent, key):
+def scan_network_ssdp(verbose):
   try:
-    if (not silent):
+    tv_ips = []
+    if (verbose):
       print("Scanning network...")
-
-    my_mask = get_my_ip() + '/24'
-    interface = ipaddress.IPv4Interface(my_mask).network
-    socket.setdefaulttimeout(0.1)
-
-    # start looking in the first valid ip
-    for addr in interface:
-      ip = str(addr)
-      if (push(ip, key)):
-        if (silent):
-          global dst
-          dst = ip
-          break
-        else:
-          print("TV found in ip: " + ip)
+    tvs_found = ssdp.discover("urn:samsung.com:device:RemoteControlReceiver:1", timeout=1);
+    for tv in tvs_found:
+      ip = re.search(r'[0-9]+(?:\.[0-9]+){3}', tv.location)
+      tv_ips.append(ip.group(0))
+      if (verbose):
+        print("TV found in ip: " + ip.group(0))
+    return tv_ips
 
   except KeyboardInterrupt:
     print (' was pressed. Search interrupted by user')
 
-def push(ip, key, wait_time = 100.0):
+def push(ip, key, wait_time = 100.0, port = 55000):
   try:
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect((ip, port))
 
-    src      = client_socket.getsockname()[0]
-    byte_key = bytes(key, encoding)
-    encoded_key    = base64.b64encode(byte_key).decode(encoding)
+    src         = client_socket.getsockname()[0]
+    byte_key    = bytes(key, encoding)
+    encoded_key = base64.b64encode(byte_key).decode(encoding)
     
     msg =  chr(0x64)        + chr(0x00) +\
            chr(len(src))    + chr(0x00) + src +\
@@ -89,14 +64,14 @@ def push(ip, key, wait_time = 100.0):
   except socket.error:
     return False
 
-def execute_macro(filename):
+def execute_macro(ip, filename):
   try:
     with open(filename, newline='') as macro_file:
        reader = csv.DictReader(macro_file, ("key", "time"))
        for line in reader:
           if (line['key'].startswith('#')):
              continue
-          push(dst, line['key'], float(line['time'] or 1000.0))
+          push(ip, line['key'], float(line['time'] or 1000.0))
   except (FileNotFoundError, IOError):
     print('No such macro file: ' + filename) 
 
@@ -115,23 +90,29 @@ def main():
 
   args = parser.parse_args()
 
+  dst = ""
+
   if args.scan:
-     scan_network(False, key_ping)
+     scan_network_ssdp(True)
 
   if args.auto:
-     scan_network(True, key_ping)
+     tvs = scan_network_ssdp(False)
+     if tvs is not None:
+        dst = tvs[0]
 
   if args.ip:
-     global dst
      dst = args.ip
 
   if args.key:
      push(dst, args.key)
 
   if args.poweroff:
-     scan_network(False, key_off)
+     tvs = scan_network_ssdp(False)
+     if tvs is not None:
+        for tv in tvs:
+           push(tv, 'KEY_POWEROFF')
 
   if args.macro:
-     execute_macro(args.macro)
+     execute_macro(dst, args.macro)
 
 if __name__ == "__main__": main()
