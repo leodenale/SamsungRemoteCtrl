@@ -12,11 +12,8 @@ import re
 encoding = 'utf-8'
 mac      = '00-AB-11-11-11-11' # mac of remote
 remote   = 'python remote'     # remote name
-dst      = '10.0.1.10'         # ip of tv
 app      = 'python'            # iphone..iapp.samsung
 tv       = 'LE32C650'          # iphone.LE32C650.iapp.samsung
-port     =  55000
-key_off  = 'KEY_POWEROFF'
 
 def scan_network_ssdp(verbose):
   try:
@@ -29,11 +26,12 @@ def scan_network_ssdp(verbose):
       tv_ips.append(ip.group(0))
       if (verbose):
         print("TV found in ip: " + ip.group(0))
+    return tv_ips
 
   except KeyboardInterrupt:
     print (' was pressed. Search interrupted by user')
 
-def push(ip, key, wait_time = 100.0):
+def push(ip, key, wait_time = 100.0, port = 55000):
   try:
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect((ip, port))
@@ -66,14 +64,14 @@ def push(ip, key, wait_time = 100.0):
   except socket.error:
     return False
 
-def execute_macro(filename):
+def execute_macro(ip, filename):
   try:
     with open(filename, newline='') as macro_file:
        reader = csv.DictReader(macro_file, ("key", "time"))
        for line in reader:
           if (line['key'].startswith('#')):
              continue
-          push(dst, line['key'], float(line['time'] or 1000.0))
+          push(ip, line['key'], float(line['time'] or 1000.0))
   except (FileNotFoundError, IOError):
     print('No such macro file: ' + filename) 
 
@@ -92,23 +90,29 @@ def main():
 
   args = parser.parse_args()
 
+  dst = ""
+
   if args.scan:
      scan_network_ssdp(True)
 
   if args.auto:
-     scan_network(True, key_ping)
+     tvs = scan_network_ssdp(False)
+     if tvs is not None:
+        dst = tvs[0]
 
   if args.ip:
-     global dst
      dst = args.ip
 
   if args.key:
      push(dst, args.key)
 
   if args.poweroff:
-     scan_network(False, key_off)
+     tvs = scan_network_ssdp(False)
+     if tvs is not None:
+        for tv in tvs:
+           push(tv, 'KEY_POWEROFF')
 
   if args.macro:
-     execute_macro(args.macro)
+     execute_macro(dst, args.macro)
 
 if __name__ == "__main__": main()
