@@ -2,117 +2,114 @@
 
 import time
 import socket
-import base64
 import argparse
 import sys
 import csv
 import ssdp
 import re
+import samsungctl
 
-encoding = 'utf-8'
-mac      = '00-AB-11-11-11-11' # mac of remote
-remote   = 'python remote'     # remote name
-app      = 'python'            # iphone..iapp.samsung
-tv       = 'LE32C650'          # iphone.LE32C650.iapp.samsung
+def push(ip, key, wait_time = 100.0):
+    try:
+        config = {
+            "name": "samsungctl",
+            "description": "PC",
+            "id": "",
+            "host": ip,
+            "port": 55000,
+            "method": "legacy",
+            "timeout": 0,
+        }
+
+        with samsungctl.Remote(config) as remote:
+            remote.control(key)
+
+        time.sleep(wait_time / 1000.0)
+        return True
+
+    except socket.error:
+        return False
 
 def scan_network_ssdp(verbose):
-  try:
-    tv_ips = []
-    if (verbose):
-      print("Scanning network...")
-    tvs_found = ssdp.discover("urn:samsung.com:device:RemoteControlReceiver:1", timeout=1);
-    for tv in tvs_found:
-      ip = re.search(r'[0-9]+(?:\.[0-9]+){3}', tv.location)
-      tv_ips.append(ip.group(0))
-      if (verbose):
-        print("TV found in ip: " + ip.group(0))
-    return tv_ips
+    try:
+        tv_ips = []
+        if (verbose):
+            print("Scanning network...")
+        tvs_found = ssdp.discover("urn:samsung.com:device:RemoteControlReceiver:1", timeout=1);
+        for tv in tvs_found:
+            ip = re.search(r'[0-9]+(?:\.[0-9]+){3}', tv.location)
+            tv_ips.append(ip.group(0))
+            if (verbose):
+                print("TV found in ip: " + ip.group(0))
+                print("TV found in ip: " + tv.location)
+        return tv_ips
 
-  except KeyboardInterrupt:
-    print (' was pressed. Search interrupted by user')
-
-def push(ip, key, wait_time = 100.0, port = 55000):
-  try:
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect((ip, port))
-
-    src         = client_socket.getsockname()[0]
-    byte_key    = bytes(key, encoding)
-    encoded_key = base64.b64encode(byte_key).decode(encoding)
-    
-    msg =  chr(0x64)        + chr(0x00) +\
-           chr(len(src))    + chr(0x00) + src +\
-           chr(len(mac))    + chr(0x00) + mac +\
-           chr(len(remote)) + chr(0x00) + remote 
-
-    pkt =  chr(0x00) +\
-           chr(len(app)) + chr(0x00) + app +\
-           chr(len(msg)) + chr(0x00) + msg
-
-    client_socket.send(bytes(pkt, encoding))
-
-    msg =  chr(0x00) + chr(0x00) + chr(0x00) +\
-           chr(len(encoded_key)) + chr(0x00) + encoded_key
-
-    pkt =  chr(0x00) + chr(len(tv)) + chr(0x00) + tv + chr(len(msg)) +\
-           chr(0x00) + msg
-
-    client_socket.send(bytes(pkt, encoding))
-    client_socket.close()
-    time.sleep(wait_time / 1000.0)
-    return True
-  except socket.error:
-    return False
+    except KeyboardInterrupt:
+        print (' was pressed. Search interrupted by user')
 
 def execute_macro(ip, filename):
-  try:
-    with open(filename, newline='') as macro_file:
-       reader = csv.DictReader(macro_file, ("key", "time"))
-       for line in reader:
-          if (line['key'].startswith('#')):
-             continue
-          push(ip, line['key'], float(line['time'] or 1000.0))
-  except (FileNotFoundError, IOError):
-    print('No such macro file: ' + filename) 
+    try:
+      with open(filename, newline='') as macro_file:
+          config = {
+              "name": "samsungctl",
+              "description": "PC",
+              "id": "",
+              "host": ip,
+              "port": 55000,
+              "method": "legacy",
+              "timeout": 0,
+          }
+          reader = csv.DictReader(macro_file, ("key", "time"))
+
+          with samsungctl.Remote(config) as remote:
+              for line in reader:
+                  key = line['key']
+                  if (key.startswith('#')):
+                      continue
+                  remote.control(key)
+                  time.sleep(float(line['time'] or 1000.0) / 1000.0)
+
+    except (FileNotFoundError, IOError):
+        print('No such macro file: ' + filename) 
 
 def main():
-  parser = argparse.ArgumentParser(description='Controls your Samsumg SmartTV thru Wifi')
-  parser.add_argument("-s", "--scan", help="scans the TV on the network", action="store_true")
-  parser.add_argument("-k", "--key", help="the key to be sent to TV")
-  parser.add_argument("-p", "--poweroff", help="search all TV's in the network and turn them off", action="store_true")
-  parser.add_argument("-i", "--ip", help="defines the ip of the TV that will receive the command")
-  parser.add_argument("-a", "--auto", help="sends the command to the first TV available", action="store_true")
-  parser.add_argument("-m", "--macro", help="the macro file with commands to be sent to TV")
+    parser = argparse.ArgumentParser(description='Controls your Samsumg SmartTV thru Wifi')
+    parser.add_argument("-s", "--scan", help="scans the TV on the network", action="store_true")
+    parser.add_argument("-k", "--key", help="the key to be sent to TV")
+    parser.add_argument("-p", "--poweroff", help="search all TV's in the network and turn them off", action="store_true")
+    parser.add_argument("-i", "--ip", help="defines the ip of the TV that will receive the command")
+    parser.add_argument("-a", "--auto", help="sends the command to the first TV available", action="store_true")
+    parser.add_argument("-m", "--macro", help="the macro file with commands to be sent to TV")
 
-  if len(sys.argv)==1:
-    parser.print_help()
-    sys.exit(1)
+    if len(sys.argv)==1:
+        parser.print_help()
+        sys.exit(1)
 
-  args = parser.parse_args()
+    args = parser.parse_args()
 
-  dst = ""
+    dst = ''
 
-  if args.scan:
-     scan_network_ssdp(True)
+    if args.scan:
+        scan_network_ssdp(True)
 
-  if args.auto:
-     tvs = scan_network_ssdp(False)
-     if tvs is not None:
-        dst = tvs[0]
+    if args.auto:
+        tvs = scan_network_ssdp(False)
+        if tvs is not None:
+            dst = tvs[0]
 
-  if args.ip:
-     dst = args.ip
+    if args.ip:
+        dst = args.ip
 
-  if args.key:
-     push(dst, args.key)
+    if args.key:
+        push(dst, args.key)
 
-  if args.poweroff:
-     tvs = scan_network_ssdp(False)
-     if tvs is not None:
-        for tv in tvs:
-           push(tv, 'KEY_POWEROFF')
+    if args.poweroff:
+        tvs = scan_network_ssdp(False)
+        if tvs is not None:
+            for tv in tvs:
+                push(tv, 'KEY_POWEROFF')
 
-  if args.macro:
-     execute_macro(dst, args.macro)
+    if args.macro:
+        execute_macro(dst, args.macro)
 
 if __name__ == "__main__": main()
