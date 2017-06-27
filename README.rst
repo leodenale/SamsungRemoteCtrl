@@ -1,6 +1,6 @@
-=================
-samsung_remote.py
-=================
+==============
+samsung_remote
+==============
 
 A Samsung TV Remote Control Python Script
 
@@ -31,11 +31,10 @@ Dependecies
 ===========
 
 - Python 3.5
-- `samsungctl <https://github.com/Ape/samsungctl>` (you can install it running # pip install samsungctl)
+- `samsungctl <https://github.com/Ape/samsungctl>`_ (you can install it running # pip install samsungctl)
 
 References
 ==========
 
 - SSDP discovery https://gist.github.com/dankrause/6000248 and http://forum.micasaverde.com/index.php?topic=7878.15
 - https://gist.github.com/danielfaust/998441
-- 
