@@ -38,3 +38,5 @@ References
 
 - SSDP discovery https://gist.github.com/dankrause/6000248 and http://forum.micasaverde.com/index.php?topic=7878.15
 - https://gist.github.com/danielfaust/998441
+- Regular expression to get the XML namespace https://stackoverflow.com/a/12946675/2383657 
+- Correctly parse XML with namespaces https://codereview.stackexchange.com/a/51132

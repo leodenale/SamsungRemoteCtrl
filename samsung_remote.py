@@ -8,6 +8,22 @@ import csv
 import ssdp
 import re
 import samsungctl
+import urllib.request
+import xml.etree.ElementTree as ET
+
+def namespace(element):
+    m = re.match('\{.*\}', element.tag)
+    return m.group(0) if m else ''
+
+def getTVinfo(url):
+    ip = re.search(r'[0-9]+(?:\.[0-9]+){3}', url)
+    xmlinfo = urllib.request.urlopen(url)
+    xmlstr = xmlinfo.read().decode('utf-8')
+    root = ET.fromstring(xmlstr)
+    ns = namespace(root)
+    fn = root.find('.//{}friendlyName'.format(ns)).text
+    model = root.find('.//{}modelName'.format(ns)).text
+    return {'fn': fn, 'ip': ip.group(0), 'model': model}
 
 def push(ip, key, wait_time = 100.0):
     try:
@@ -32,17 +48,16 @@ def push(ip, key, wait_time = 100.0):
 
 def scan_network_ssdp(verbose):
     try:
-        tv_ips = []
+        tv_list = []
         if (verbose):
             print("Scanning network...")
         tvs_found = ssdp.discover("urn:samsung.com:device:RemoteControlReceiver:1", timeout=1);
         for tv in tvs_found:
-            ip = re.search(r'[0-9]+(?:\.[0-9]+){3}', tv.location)
-            tv_ips.append(ip.group(0))
+            info = getTVinfo(tv.location)
+            tv_list.append(info)
             if (verbose):
-                print("TV found in ip: " + ip.group(0))
-                print("TV found in ip: " + tv.location)
-        return tv_ips
+                print(info['fn'] + " found in ip: " + info['ip'])
+        return tv_list
 
     except KeyboardInterrupt:
         print (' was pressed. Search interrupted by user')
@@ -107,7 +122,11 @@ def main():
         tvs = scan_network_ssdp(False)
         if tvs is not None:
             for tv in tvs:
-                push(tv, 'KEY_POWEROFF')
+                print("Turning off " + tv['fn'] + " ... ", end='')
+                if push(tv['ip'], 'KEY_POWEROFF'):
+                    print('success.')
+                else:
+                    print('failed.')
 
     if args.macro:
         execute_macro(dst, args.macro)
