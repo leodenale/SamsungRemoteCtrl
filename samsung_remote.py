@@ -10,6 +10,7 @@ import re
 import samsungctl
 import urllib.request
 import xml.etree.ElementTree as ET
+import logging
 
 def namespace(element):
     m = re.match('\{.*\}', element.tag)
@@ -49,18 +50,18 @@ def push(ip, key, wait_time = 100.0):
 def scan_network_ssdp(verbose):
     try:
         tv_list = []
-        if (verbose):
-            print("Scanning network...")
         tvs_found = ssdp.discover("urn:samsung.com:device:RemoteControlReceiver:1", timeout=1);
         for tv in tvs_found:
             info = getTVinfo(tv.location)
             tv_list.append(info)
             if (verbose):
-                print(info['fn'] + " found in ip: " + info['ip'])
+                logging.info(info['fn'] + " model " + info['model'] + " found in ip " + info['ip'])
+            else:
+                logging.debug(info['fn'] + " model " + info['model'] + " found in ip " + info['ip'])
         return tv_list
 
     except KeyboardInterrupt:
-        print (' was pressed. Search interrupted by user')
+        logging.info (' was pressed. Search interrupted by user')
 
 def execute_macro(ip, filename):
     try:
@@ -82,10 +83,22 @@ def execute_macro(ip, filename):
                   if (key.startswith('#')):
                       continue
                   remote.control(key)
-                  time.sleep(float(line['time'] or 1000.0) / 1000.0)
+                  time.sleep(float(line['time'] or 500.0) / 1000.0)
 
     except (FileNotFoundError, IOError):
-        print('No such macro file: ' + filename) 
+        logging.error('No such macro file: ' + filename) 
+
+def loadLog(quiet):
+    logging.basicConfig(filename='app.log', 
+                        format='%(asctime)s [%(levelname)6s]: %(message)s', 
+                        level=logging.DEBUG)
+    if not (quiet):
+        root = logging.getLogger()
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(message)s')
+        ch.setFormatter(formatter)
+        root.addHandler(ch)
 
 def main():
     parser = argparse.ArgumentParser(description='Controls your Samsumg SmartTV thru Wifi')
@@ -95,6 +108,7 @@ def main():
     parser.add_argument("-i", "--ip", help="defines the ip of the TV that will receive the command")
     parser.add_argument("-a", "--auto", help="sends the command to the first TV available", action="store_true")
     parser.add_argument("-m", "--macro", help="the macro file with commands to be sent to TV")
+    parser.add_argument("-q", "--quiet", help="do not print messages to console", action="store_true")
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -102,15 +116,19 @@ def main():
 
     args = parser.parse_args()
 
+    loadLog(args.quiet)
+    logging.debug('Program started with: %s', sys.argv)
+
     dst = ''
 
     if args.scan:
+        logging.info("Scanning network...")
         scan_network_ssdp(True)
 
     if args.auto:
         tvs = scan_network_ssdp(False)
         if tvs is not None:
-            dst = tvs[0]
+            dst = tvs[0]['ip']
 
     if args.ip:
         dst = args.ip
@@ -122,11 +140,10 @@ def main():
         tvs = scan_network_ssdp(False)
         if tvs is not None:
             for tv in tvs:
-                print("Turning off " + tv['fn'] + " ... ", end='')
                 if push(tv['ip'], 'KEY_POWEROFF'):
-                    print('success.')
+                    logging.info("Turning off " + tv['fn'] + " succeed")
                 else:
-                    print('failed.')
+                    logging.error("Turning off " + tv['fn'] + " failed")
 
     if args.macro:
         execute_macro(dst, args.macro)
