@@ -12,6 +12,11 @@ import urllib.request
 import xml.etree.ElementTree as ET
 import logging
 
+def getMethod(model):
+    #model dict... this should be updated to all samsung models
+    models = {'J' : 'websocket', 'U' : 'legacy' }
+    return models.get(model[0].upper, 'legacy')
+
 def namespace(element):
     m = re.match('\{.*\}', element.tag)
     return m.group(0) if m else ''
@@ -26,18 +31,8 @@ def getTVinfo(url):
     model = root.find('.//{}modelName'.format(ns)).text
     return {'fn': fn, 'ip': ip.group(0), 'model': model}
 
-def push(ip, key, wait_time = 100.0):
+def push(config, key, wait_time = 100.0):
     try:
-        config = {
-            "name": "samsungctl",
-            "description": "PC",
-            "id": "",
-            "host": ip,
-            "port": 55000,
-            "method": "legacy",
-            "timeout": 0,
-        }
-
         with samsungctl.Remote(config) as remote:
             remote.control(key)
 
@@ -47,10 +42,10 @@ def push(ip, key, wait_time = 100.0):
     except socket.error:
         return False
 
-def scan_network_ssdp(verbose):
+def scan_network_ssdp(verbose, wait = 0.3):
     try:
         tv_list = []
-        tvs_found = ssdp.discover("urn:samsung.com:device:RemoteControlReceiver:1", timeout=1);
+        tvs_found = ssdp.discover("urn:samsung.com:device:RemoteControlReceiver:1", timeout=wait);
         for tv in tvs_found:
             info = getTVinfo(tv.location)
             tv_list.append(info)
@@ -63,18 +58,9 @@ def scan_network_ssdp(verbose):
     except KeyboardInterrupt:
         logging.info (' was pressed. Search interrupted by user')
 
-def execute_macro(ip, filename):
+def execute_macro(config, filename):
     try:
       with open(filename, newline='') as macro_file:
-          config = {
-              "name": "samsungctl",
-              "description": "PC",
-              "id": "",
-              "host": ip,
-              "port": 55000,
-              "method": "legacy",
-              "timeout": 0,
-          }
           reader = csv.DictReader(macro_file, ("key", "time"))
 
           with samsungctl.Remote(config) as remote:
@@ -102,13 +88,23 @@ def loadLog(quiet):
 
 def main():
     parser = argparse.ArgumentParser(description='Controls your Samsumg SmartTV thru Wifi')
-    parser.add_argument("-s", "--scan", help="scans the TV on the network", action="store_true")
-    parser.add_argument("-k", "--key", help="the key to be sent to TV")
-    parser.add_argument("-p", "--poweroff", help="search all TV's in the network and turn them off", action="store_true")
-    parser.add_argument("-i", "--ip", help="defines the ip of the TV that will receive the command")
-    parser.add_argument("-a", "--auto", help="sends the command to the first TV available", action="store_true")
-    parser.add_argument("-m", "--macro", help="the macro file with commands to be sent to TV")
-    parser.add_argument("-q", "--quiet", help="do not print messages to console", action="store_true")
+    parser.add_argument("-s", "--scan", action="store_true",
+                        help="scans the TV on the network")
+    parser.add_argument("-k", "--key",
+                        help="the key to be sent to TV")
+    parser.add_argument("-p", "--poweroff", action="store_true",
+                        help="search all TV's in the network and turn them off")
+    parser.add_argument("-m", "--macro", 
+                        help="the macro file with commands to be sent to TV")
+    parser.add_argument("-w", "--web", action="store_true",
+                        help="use websocket method instead of default mode (legacy)")
+    parser.add_argument("-q", "--quiet", action="store_true",
+                        help="do not print messages to console")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-i", "--ip",
+                        help="defines the ip of the TV that will receive the command")
+    group.add_argument("-a", "--auto", action="store_true",
+                        help="sends the command to the first TV available")
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -119,33 +115,59 @@ def main():
     loadLog(args.quiet)
     logging.debug('Program started with: %s', sys.argv)
 
-    dst = ''
-
     if args.scan:
         logging.info("Scanning network...")
-        scan_network_ssdp(True)
+        tvs = scan_network_ssdp(True, wait = 1)
+        if not tvs:
+            # try again, with a higher timeout
+            tvs = scan_network_ssdp(True, wait = 2)
+        sys.exit(0)
 
-    if args.auto:
-        tvs = scan_network_ssdp(False)
-        if tvs is not None:
-            dst = tvs[0]['ip']
+    config = {
+        "name": "python remote",
+        "ip": "10.0.1.2",
+        "mac": "00-AB-11-11-11-11",
+        "description": "samsungctl",
+        "id": "PC",
+        "host": "",
+        "port": 55000,
+        "method": "legacy",
+        "timeout": 0,
+    }
 
     if args.ip:
-        dst = args.ip
+        config['host'] = args.ip
+    else:
+        #no need to scan network if ip is passed as parameter
+        tvs = scan_network_ssdp(False)
+        if not tvs:
+            # try again, with a higher timeout
+            logging.error("No Samsung TV found in the first run, trying again...")
+            tvs = scan_network_ssdp(False, wait = 1)
+            if not tvs:
+                logging.error("No Samsung TV found in the network.")
+                sys.exit(0)
+
+    if args.auto:
+        config['host'] = tvs[0]['ip']
+        config['method'] = getMethod(tvs[0]['model'])
+
+    if args.web:
+        config['method'] = args.web
 
     if args.key:
-        push(dst, args.key)
+        push(config, args.key)
 
     if args.poweroff:
-        tvs = scan_network_ssdp(False)
-        if tvs is not None:
-            for tv in tvs:
-                if push(tv['ip'], 'KEY_POWEROFF'):
-                    logging.info("Turning off " + tv['fn'] + " succeed")
-                else:
-                    logging.error("Turning off " + tv['fn'] + " failed")
+        for tv in tvs:
+            config['host'] = tv['ip']
+            config['method'] = getMethod(tv['model'])
+            if push(config, 'KEY_POWEROFF'):
+                logging.info("Turning off " + tv['fn'] + " succeed")
+            else:
+                logging.error("Turning off " + tv['fn'] + " failed")
 
     if args.macro:
-        execute_macro(dst, args.macro)
+        execute_macro(config, args.macro)
 
 if __name__ == "__main__": main()
