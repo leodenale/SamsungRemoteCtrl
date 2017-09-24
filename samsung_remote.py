@@ -11,11 +11,14 @@ import samsungctl
 import urllib.request
 import xml.etree.ElementTree as ET
 import logging
+import websocket
 
 def getMethod(model):
     #model dict... this should be updated to all samsung models
-    models = {'J' : 'websocket', 'U' : 'legacy' }
-    return models.get(model[0].upper, 'legacy')
+    models = {'F' : 'legacy' }
+    method = models.get(model[4], 'websocket')
+    logging.debug('Model: ' + model[4] + ' returns method: ' + method)
+    return method
 
 def namespace(element):
     m = re.match('\{.*\}', element.tag)
@@ -40,6 +43,9 @@ def push(config, key, wait_time = 100.0):
         return True
 
     except socket.error:
+        return False
+    except websocket._exceptions.WebSocketConnectionClosedException:
+        logging.error("Websocket error! Maybe try sending with legacy (-l)?")
         return False
 
 def scan_network_ssdp(verbose, wait = 0.3):
@@ -96,8 +102,8 @@ def main():
                         help="search all TV's in the network and turn them off")
     parser.add_argument("-m", "--macro", 
                         help="the macro file with commands to be sent to TV")
-    parser.add_argument("-w", "--web", action="store_true",
-                        help="use websocket method instead of default mode (legacy)")
+    parser.add_argument("-l", "--legacy", action="store_true",
+                        help="use legacy method instead of default mode (websocket)")
     parser.add_argument("-q", "--quiet", action="store_true",
                         help="do not print messages to console")
     group = parser.add_mutually_exclusive_group()
@@ -131,7 +137,7 @@ def main():
         "id": "PC",
         "host": "",
         "port": 55000,
-        "method": "legacy",
+        "method": "websocket",
         "timeout": 0,
     }
 
@@ -151,9 +157,10 @@ def main():
     if args.auto:
         config['host'] = tvs[0]['ip']
         config['method'] = getMethod(tvs[0]['model'])
+        logging.info ('Sending command to first TV found: ' + tvs[0]['fn'])
 
-    if args.web:
-        config['method'] = args.web
+    if args.legacy:
+        config['method'] = "legacy"
 
     if args.key:
         push(config, args.key)
