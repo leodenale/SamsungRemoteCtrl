@@ -127,6 +127,8 @@ def main():
         if not tvs:
             # try again, with a higher timeout
             tvs = scan_network_ssdp(True, wait = 2)
+        if not tvs:
+            logging.info("No Samsung TV's found in the network")
         sys.exit(0)
 
     config = {
