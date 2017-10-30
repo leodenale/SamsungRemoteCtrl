@@ -17,21 +17,31 @@ samsung_remote is a script writen in Python that can remotely control your Samsu
 Usage
 =====
 
-./samsung_remote.py [-h] [-s] [-k KEY] [-p] [-i IP] [-a] [-m MACRO]
+usage: samsung_remote.py [-h] [-s] [-k KEY] [-p] [-m MACRO] [-l] [-q]
+                         [-i IP | -a]
 
+optional arguments:
   -h, --help            show this help message and exit
   -s, --scan            scans the TV on the network
   -k KEY, --key KEY     the key to be sent to TV
   -p, --poweroff        search all TV's in the network and turn them off
-  -i IP, --ip IP        defines the ip of the TV that will receive the command
-  -a, --auto            sends the command to the first TV available
   -m MACRO, --macro MACRO
                         the macro file with commands to be sent to TV
+  -l, --legacy          use legacy method instead of default mode (websocket)
+  -q, --quiet           do not print messages to console
+  -i IP, --ip IP        defines the ip of the TV that will receive the command
+  -a, --auto            sends the command to the first TV available
+
 Dependecies
 ===========
 
-- Python 3.5
-- `samsungctl <https://github.com/Ape/samsungctl>`_ (you can install it running # pip install samsungctl)
+- Python 3
+- `samsungctl <https://github.com/Ape/samsungctl>`_ 
+- `websocket-client`
+
+you can install the dependencies running:
+
+# pip3 install -r requirements.txt 
 
 References
 ==========
