@@ -1,2 +1,2 @@
-samsungctl==0.6.0
+samsungctl==0.7.0
 websocket_client==0.44.0

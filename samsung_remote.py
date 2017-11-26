@@ -15,8 +15,10 @@ import websocket
 
 
 def getMethod(model):
-    # model dict... this should be updated to all samsung models
-    models = {'F': 'legacy'}
+    models = {'C': 'legacy',
+              'D': 'legacy',
+              'E': 'legacy',
+              'F': 'legacy'}
     method = models.get(model[4], 'websocket')
     logging.debug('Model: ' + model[4] + ' returns method: ' + method)
     return method
