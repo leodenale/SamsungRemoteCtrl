@@ -1,105 +1,12 @@
 #!/usr/bin/env python3
 
-import time
-import socket
 import argparse
 import sys
-import csv
 import ssdp
-import re
-import samsungctl
-import urllib.request
-import xml.etree.ElementTree as ET
 import logging
-import websocket
-
-
-def getMethod(model):
-    models = {'C': 'legacy',
-              'D': 'legacy',
-              'E': 'legacy',
-              'F': 'legacy'}
-    method = models.get(model[4], 'websocket')
-    logging.debug('Model: ' + model[4] + ' returns method: ' + method)
-    return method
-
-
-def namespace(element):
-    m = re.match('\{.*\}', element.tag)
-    return m.group(0) if m else ''
-
-
-def getTVinfo(url):
-    ip = re.search(r'[0-9]+(?:\.[0-9]+){3}', url)
-    xmlinfo = urllib.request.urlopen(url)
-    xmlstr = xmlinfo.read().decode('utf-8')
-    root = ET.fromstring(xmlstr)
-    ns = namespace(root)
-    fn = root.find('.//{}friendlyName'.format(ns)).text
-    model = root.find('.//{}modelName'.format(ns)).text
-    return {'fn': fn, 'ip': ip.group(0), 'model': model}
-
-
-def push(config, key, wait_time=100.0):
-    try:
-        with samsungctl.Remote(config) as remote:
-            remote.control(key)
-
-        time.sleep(wait_time / 1000.0)
-        return True
-
-    except socket.error:
-        return False
-    except websocket._exceptions.WebSocketConnectionClosedException:
-        logging.error("Websocket error! Maybe try sending with legacy (-l)?")
-        return False
-
-
-def scan_network_ssdp(verbose, wait=0.3):
-    try:
-        tv_list = []
-        tvs_found = ssdp.discover(
-            "urn:samsung.com:device:RemoteControlReceiver:1",
-            timeout=wait)
-        for tv in tvs_found:
-            info = getTVinfo(tv.location)
-            tv_list.append(info)
-            if verbose:
-                logging.info(
-                    info['fn'] +
-                    " model " +
-                    info['model'] +
-                    " found in ip " +
-                    info['ip'])
-            else:
-                logging.debug(
-                    info['fn'] +
-                    " model " +
-                    info['model'] +
-                    " found in ip " +
-                    info['ip'])
-        return tv_list
-
-    except KeyboardInterrupt:
-        logging.info(' was pressed. Search interrupted by user')
-
-
-def execute_macro(config, filename):
-    try:
-        with open(filename, newline='') as macro_file:
-            reader = csv.DictReader(macro_file, ("key", "time"))
-
-            with samsungctl.Remote(config) as remote:
-                for line in reader:
-                    key = line['key']
-                    if (key.startswith('#')):
-                        continue
-                    remote.control(key)
-                    time.sleep(float(line['time'] or 500.0) / 1000.0)
-
-    except (FileNotFoundError, IOError):
-        logging.error('No such macro file: ' + filename)
-
+import tvinfo
+import tvcon
+import macro
 
 def loadLog(quiet):
     logging.basicConfig(filename='app.log',
@@ -157,63 +64,62 @@ def main():
 
     if args.s:
         logging.info('Scanning network...')
-        tvs = scan_network_ssdp(True, wait=1)
+        tvs = ssdp.scan_network(True, wait=1)
         if not tvs:
             # try again, with a higher timeout
-            tvs = scan_network_ssdp(True, wait=2)
+            tvs = ssdp.scan_network(True, wait=2)
         if not tvs:
             logging.info("No Samsung TV's found in the network")
         sys.exit(0)
 
     config = {
-        "name": "python remote",
-        "ip": "10.0.1.2",
-        "mac": "00-AB-11-11-11-11",
-        "description": "samsungctl",
-        "id": "PC",
-        "host": "",
-        "port": 55000,
-        "method": "websocket",
-        "timeout": 0,
+        'name': 'python remote',
+        'ip': '10.0.1.2',
+        'mac': '00-AB-11-11-11-11',
+        'description': 'samsungctl',
+        'id': 'PC',
+        'host': '',
+        'port': 55000,
+        'method': 'websocket',
+        'timeout': 0,
     }
 
     if args.i:
         config['host'] = args.i
     else:
         # no need to scan network if ip is passed as parameter
-        tvs = scan_network_ssdp(False)
+        tvs = ssdp.scan_network(False)
         if not tvs:
             # try again, with a higher timeout
             logging.error(
-                "No Samsung TV found in the first run, trying again...")
-            tvs = scan_network_ssdp(False, wait=1)
+                'No Samsung TV found in the first run, trying again...')
+            tvs = ssdp.scan_network(False, wait=1)
             if not tvs:
-                logging.error("No Samsung TV found in the network.")
+                logging.error('No Samsung TV found in the network.')
                 sys.exit(0)
 
     if args.a:
         config['host'] = tvs[0]['ip']
-        config['method'] = getMethod(tvs[0]['model'])
+        config['method'] = tvinfo.getMethod(tvs[0]['model'])
         logging.info('Sending command to first TV found: ' + tvs[0]['fn'])
 
     if args.l:
         config['method'] = 'legacy'
 
     if args.k:
-        push(config, args.k)
+        tvcon.send(config, args.k)
 
     if args.p:
         for tv in tvs:
             config['host'] = tv['ip']
-            config['method'] = getMethod(tv['model'])
-            if push(config, 'KEY_POWEROFF'):
-                logging.info("Turning off " + tv['fn'] + " succeed")
+            config['method'] = tvinfo.getMethod(tv['model'])
+            if tvcon.send(config, 'KEY_POWEROFF'):
+                logging.info('Turning off ' + tv['fn'] + ' succeed')
             else:
-                logging.error("Turning off " + tv['fn'] + " failed")
+                logging.error('Turning off ' + tv['fn'] + ' failed')
 
     if args.m:
-        execute_macro(config, args.m)
-
+        macro.execute(config, args.m)
 
 if __name__ == "__main__":
     main()
