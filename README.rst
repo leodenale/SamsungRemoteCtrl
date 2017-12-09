@@ -17,8 +17,7 @@ samsung_remote is a script writen in Python that can remotely control your Samsu
 Usage
 =====
 
-usage: samsung_remote.py [-h] [-a | -i ip] [-k key] [-l] [-m <file>] [-p] [-q]
-                         [-s]
+usage: samsung_remote.py [-h] [-a | -i ip] [-k key] [-l] [-m <file>] [-p] [-q] [-s]
 
 optional arguments:
   -h, --help  show this help message and exit
