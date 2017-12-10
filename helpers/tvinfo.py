@@ -3,7 +3,8 @@ import xml.etree.ElementTree as ET
 import urllib.request
 import logging
 
-# tv info related functions  
+# tv info related functions
+
 
 def getMethod(model):
     models = {'C': 'legacy',

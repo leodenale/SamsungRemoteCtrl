@@ -8,17 +8,26 @@ from helpers import macro
 from helpers import ssdp
 from helpers import tvinfo
 
+
 def getTvInfo(tvs_found, verbose):
     tv_list = []
     for tv in tvs_found:
         info = tvinfo.get(tv.location)
         tv_list.append(info)
         if verbose:
-            logging.info( info['fn'] + ' model ' + info['model'] + ' found in ip ' + info['ip'])
+            logging.info(
+                '{} model {} found in ip {}'.format(
+                    info['fn'],
+                    info['model'],
+                    info['ip']))
         else:
             logging.debug(
-                info['fn'] + ' model ' + info['model'] + ' found in ip ' + info['ip'])
+                '{} model {} found in ip {}'.format(
+                    info['fn'],
+                    info['model'],
+                    info['ip']))
     return tv_list
+
 
 def loadLog(quiet):
     logging.basicConfig(filename='app.log',
@@ -126,6 +135,7 @@ def main():
 
     if args.m:
         macro.execute(config, args.m)
+
 
 if __name__ == "__main__":
     main()

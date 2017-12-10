@@ -4,6 +4,7 @@ import samsungctl
 import logging
 import time
 
+
 def send(config, key, wait_time=100.0):
     try:
         with samsungctl.Remote(config) as remote:

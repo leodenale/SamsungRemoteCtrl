@@ -16,6 +16,7 @@ import socket
 import http.client
 import io
 
+
 class SSDPResponse(object):
     class _FakeSocket(io.BytesIO):
         def makefile(self, *args, **kw):
@@ -62,16 +63,17 @@ def discover(service, timeout=5, retries=1, mx=3):
                 break
     return list(responses.values())
 
+
 def scan_network(wait=0.3):
     try:
         tvs_found = discover(
             "urn:samsung.com:device:RemoteControlReceiver:1",
             timeout=wait)
         if not tvs_found:
-            #try again with higher timeout
+            # try again with higher timeout
             tvs_found = discover(
                 "urn:samsung.com:device:RemoteControlReceiver:1",
-                timeout=wait+1)
+                timeout=wait + 1)
         return tvs_found
 
     except KeyboardInterrupt:
