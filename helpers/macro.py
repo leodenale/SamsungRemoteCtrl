@@ -1,7 +1,6 @@
 import logging
-import tvinfo
 import csv
-import tvcon
+from helpers import tvcon
 
 def execute(config, filename):
     try:

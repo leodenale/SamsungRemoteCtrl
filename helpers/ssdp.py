@@ -15,8 +15,6 @@
 import socket
 import http.client
 import io
-import logging
-import tvinfo
 
 class SSDPResponse(object):
     class _FakeSocket(io.BytesIO):
@@ -64,33 +62,21 @@ def discover(service, timeout=5, retries=1, mx=3):
                 break
     return list(responses.values())
 
-def scan_network(verbose, wait=0.3):
+def scan_network(wait=0.3):
     try:
-        tv_list = []
         tvs_found = discover(
             "urn:samsung.com:device:RemoteControlReceiver:1",
             timeout=wait)
-        for tv in tvs_found:
-            info = tvinfo.get(tv.location)
-            tv_list.append(info)
-            if verbose:
-                logging.info(
-                    info['fn'] +
-                    " model " +
-                    info['model'] +
-                    " found in ip " +
-                    info['ip'])
-            else:
-                logging.debug(
-                    info['fn'] +
-                    " model " +
-                    info['model'] +
-                    " found in ip " +
-                    info['ip'])
-        return tv_list
+        if not tvs_found:
+            #try again with higher timeout
+            tvs_found = discover(
+                "urn:samsung.com:device:RemoteControlReceiver:1",
+                timeout=wait+1)
+        return tvs_found
 
     except KeyboardInterrupt:
         logging.info(' was pressed. Search interrupted by user')
+        return []
 
 # Example:
 # import ssdp

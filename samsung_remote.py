@@ -2,11 +2,23 @@
 
 import argparse
 import sys
-import ssdp
 import logging
-import tvinfo
-import tvcon
-import macro
+from helpers import tvcon
+from helpers import macro
+from helpers import ssdp
+from helpers import tvinfo
+
+def getTvInfo(tvs_found, verbose):
+    tv_list = []
+    for tv in tvs_found:
+        info = tvinfo.get(tv.location)
+        tv_list.append(info)
+        if verbose:
+            logging.info( info['fn'] + ' model ' + info['model'] + ' found in ip ' + info['ip'])
+        else:
+            logging.debug(
+                info['fn'] + ' model ' + info['model'] + ' found in ip ' + info['ip'])
+    return tv_list
 
 def loadLog(quiet):
     logging.basicConfig(filename='app.log',
@@ -64,12 +76,10 @@ def main():
 
     if args.s:
         logging.info('Scanning network...')
-        tvs = ssdp.scan_network(True, wait=1)
-        if not tvs:
-            # try again, with a higher timeout
-            tvs = ssdp.scan_network(True, wait=2)
+        tvs = ssdp.scan_network(wait=1)
         if not tvs:
             logging.info("No Samsung TV's found in the network")
+        getTvInfo(tvs, True)
         sys.exit(0)
 
     config = {
@@ -88,19 +98,15 @@ def main():
         config['host'] = args.i
     else:
         # no need to scan network if ip is passed as parameter
-        tvs = ssdp.scan_network(False)
+        tvs = ssdp.scan_network()
         if not tvs:
-            # try again, with a higher timeout
-            logging.error(
-                'No Samsung TV found in the first run, trying again...')
-            tvs = ssdp.scan_network(False, wait=1)
-            if not tvs:
-                logging.error('No Samsung TV found in the network.')
-                sys.exit(0)
-
-    if args.a:
+            logging.error('No Samsung TV found in the network.')
+            sys.exit(0)
+        tvs = getTvInfo(tvs, False)
         config['host'] = tvs[0]['ip']
         config['method'] = tvinfo.getMethod(tvs[0]['model'])
+
+    if args.a:
         logging.info('Sending command to first TV found: ' + tvs[0]['fn'])
 
     if args.l:
